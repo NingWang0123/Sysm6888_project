@@ -32,30 +32,41 @@ def visualize_data(df):
     plt.ylabel('Sale Price')
     plt.show()
     
-def create_model(hidden_layer_sizes, activation, solver, alpha, learning_rate, input_dim):
+def create_model(layers, activation, solver, alpha, learning_rate, input_dim):
     model = Sequential()
-    model.add(Dense(hidden_layer_sizes[0], input_dim=input_dim, activation=activation))
-    for units in hidden_layer_sizes[1:]:
-        model.add(Dense(units, activation=activation))
-    model.add(Dense(1))  # Output layer for regression
-
-    if solver == 'sgd':
-        optimizer = SGD(learning_rate=learning_rate)
-    elif solver == 'adam':
-        optimizer = Adam(learning_rate=learning_rate)
-
-    model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mse'])
+    for i, layer_size in enumerate(layers):
+        if i == 0:
+            model.add(Dense(layer_size, activation=activation, input_dim=input_dim))
+        else:
+            model.add(Dense(layer_size, activation=activation))
+    model.compile(optimizer=solver, loss='mean_squared_error')
     return model
 
 def evaluate_keras_model(model, X, y, cv_splits):
     rmse_scores = []
     for train_idx, test_idx in cv_splits.split(X):
-        X_train_k, X_test_k = X[train_idx], X[test_idx]
-        y_train_k, y_test_k = y[train_idx], y[test_idx]
-        model.fit(X_train_k, y_train_k, epochs=1000, batch_size=32, verbose=0)
-        predictions = model.predict(X_test_k)
-        mse = np.mean((predictions.flatten() - y_test_k) ** 2)
-        rmse_scores.append(np.sqrt(mse))
-    return np.mean(rmse_scores)
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
 
+        X_train = np.array(X_train).astype('float32')
+        y_train = np.array(y_train).astype('float32')
+        X_test = np.array(X_test).astype('float32')
+        y_test = np.array(y_test).astype('float32')
+
+        if np.any(np.isnan(X_train)) or np.any(np.isinf(X_train)):
+            raise ValueError("NaN or Inf in X_train")
+        if np.any(np.isnan(y_train)) or np.any(np.isinf(y_train)):
+            raise ValueError("NaN or Inf in y_train")
+        if np.any(np.isnan(X_test)) or np.any(np.isinf(X_test)):
+            raise ValueError("NaN or Inf in X_test")
+        if np.any(np.isnan(y_test)) or np.any(np.isinf(y_test)):
+            raise ValueError("NaN or Inf in y_test")
+
+        model.fit(X_train, y_train, epochs=1000, batch_size=32, verbose=0)
+
+        predictions = model.predict(X_test)
+        mse = np.mean((predictions.flatten() - y_test) ** 2)
+        rmse_scores.append(np.sqrt(mse))
+
+    return np.mean(rmse_scores)
 
